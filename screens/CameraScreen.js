@@ -1,21 +1,44 @@
 import { Image } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useRef, useState } from 'react';
-import { Button, StyleSheet, Text, TouchableOpacity, View, Pressable } from 'react-native';
+import { useRef, useState, useEffect } from 'react';
+import { Button, StyleSheet, Text, TouchableOpacity, View, Pressable, Alert } from 'react-native';
+import * as SQLite from 'expo-sqlite';
+import * as FileSystem from 'expo-file-system';
 
 export default function CameraScreen() {
   const [facing, setFacing] = useState('back');
   const [permission, requestPermission] = useCameraPermissions();
-  const [picture, setPic] = useState(null)
-  const camera = useRef(null)
+  const [picture, setPic] = useState(null);
+  const camera = useRef(null);
+  const [db, setDb] = useState(null);
+
+  // Initialize database
+  useEffect(() => {
+    const initDatabase = async () => {
+      try {
+        const database = await SQLite.openDatabaseAsync('imageDatabase');
+        await database.execAsync(`
+          CREATE TABLE IF NOT EXISTS images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uri TEXT NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+          );
+        `);
+        setDb(database);
+      } catch (error) {
+        console.error('Database initialization error:', error);
+        Alert.alert('Database Error', 'Failed to initialize database');
+      }
+    };
+
+    initDatabase();
+  }, []);
 
   if (!permission) {
-    // Camera permissions are still loading.
     return <View />;
   }
 
   if (!permission.granted) {
-    // Camera permissions are not granted yet.
     return (
       <View style={styles.container}>
         <Text style={styles.message}>We need your permission to show the camera</Text>
@@ -29,27 +52,48 @@ export default function CameraScreen() {
       base64: true,
       exif: false,
       quality: 1,
-    }
+    };
 
     try {
-      const pic = await camera.current.takePictureAsync(options)
-      setPic(pic)
+      const pic = await camera.current.takePictureAsync(options);
+      setPic(pic);
     } catch (error) {
-      console.error('Failed to take picture:', error)
+      console.error('Failed to take picture:', error);
+      Alert.alert('Camera Error', 'Failed to take picture');
     }
-  }
+  };
 
-  const sendPic = () => {
-    // Implement your logic to send the picture
-    // For example, upload to a server or process the image
-    console.log('Sending picture:', picture)
-    // Reset picture after sending
-    setPic(null)
-  }
+  const sendPic = async () => {
+    if (!picture || !db) return;
+
+    try {
+      // Generate a unique filename
+      const fileName = `image_${Date.now()}.jpg`;
+      const destinationUri = `${FileSystem.documentDirectory}${fileName}`;
+
+      // Move the image to app's document directory
+      await FileSystem.moveAsync({
+        from: picture.uri,
+        to: destinationUri
+      });
+
+      // Save image path to database
+      await db.runAsync(
+        'INSERT INTO images (uri) VALUES (?)',
+        destinationUri
+      );
+
+      Alert.alert('Success', 'Image saved successfully');
+      setPic(null);
+    } catch (error) {
+      console.error('Error saving image:', error);
+      Alert.alert('Save Error', 'Failed to save image');
+    }
+  };
 
   const retakePicture = () => {
-    setPic(null)
-  }
+    setPic(null);
+  };
 
   function toggleCameraFacing() {
     setFacing(current => (current === 'back' ? 'front' : 'back'));
@@ -67,7 +111,7 @@ export default function CameraScreen() {
             onPress={sendPic} 
             style={[styles.button, styles.sendButton]}
           > 
-            <Text style={styles.buttonText}>Send Picture</Text>
+            <Text style={styles.buttonText}>Save Picture</Text>
           </Pressable>
           <Pressable 
             onPress={retakePicture} 
@@ -77,7 +121,7 @@ export default function CameraScreen() {
           </Pressable>
         </View>
       </View>
-    )
+    );
 
   return (
     <View style={styles.container}>
