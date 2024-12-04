@@ -4,6 +4,7 @@ import { useRef, useState, useEffect } from 'react';
 import { Button, StyleSheet, Text, TouchableOpacity, View, Pressable, Alert } from 'react-native';
 import * as SQLite from 'expo-sqlite';
 import * as FileSystem from 'expo-file-system';
+import { Camera, SwitchCamera, RefreshCw } from 'lucide-react-native'; // Using lucide icons
 
 export default function CameraScreen() {
   const [facing, setFacing] = useState('back');
@@ -16,9 +17,9 @@ export default function CameraScreen() {
   useEffect(() => {
     const initDatabase = async () => {
       try {
-        const database = await SQLite.openDatabaseAsync('imageDatabase');
+        const database = await SQLite.openDatabaseAsync('photos.db');
         await database.execAsync(`
-          CREATE TABLE IF NOT EXISTS images (
+          CREATE TABLE IF NOT EXISTS photos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             uri TEXT NOT NULL,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -79,7 +80,7 @@ export default function CameraScreen() {
 
       // Save image path to database
       await db.runAsync(
-        'INSERT INTO images (uri) VALUES (?)',
+        'INSERT INTO photos (uri) VALUES (?)',
         destinationUri
       );
 
@@ -106,19 +107,21 @@ export default function CameraScreen() {
           source={{ uri: picture.uri }}
           style={styles.image} 
         />
-        <View style={styles.buttonContainer}>
-          <Pressable 
+        <View style={styles.bottomButtonContainer}>
+          <TouchableOpacity 
             onPress={sendPic} 
-            style={[styles.button, styles.sendButton]}
+            style={[styles.iconButton, styles.sendButton]}
           > 
-            <Text style={styles.buttonText}>Save Picture</Text>
-          </Pressable>
-          <Pressable 
+            <Camera color="white" size={24} />
+            <Text style={styles.buttonText}>Save</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
             onPress={retakePicture} 
-            style={[styles.button, styles.retakeButton]}
+            style={[styles.iconButton, styles.retakeButton]}
           > 
+            <RefreshCw color="white" size={24} />
             <Text style={styles.buttonText}>Retake</Text>
-          </Pressable>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -130,18 +133,20 @@ export default function CameraScreen() {
         style={styles.camera} 
         facing={facing}
       >
-        <View style={styles.buttonContainer}>
+        <View style={styles.bottomButtonContainer}>
           <TouchableOpacity 
-            style={styles.button} 
+            style={styles.iconButton} 
             onPress={toggleCameraFacing}
           >
-            <Text style={styles.text}>Flip Camera</Text>
+            <SwitchCamera color="white" size={24} />
+            <Text style={styles.buttonText}>Flip</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={styles.button} 
+            style={styles.iconButton} 
             onPress={takePicture}
           >
-            <Text style={styles.text}>Take Picture</Text>
+            <Camera color="white" size={32} />
+            <Text style={styles.buttonText}>Capture</Text>
           </TouchableOpacity>
         </View>
       </CameraView>
@@ -153,16 +158,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
+    backgroundColor: 'black',
   },
   message: {
     textAlign: 'center',
     paddingBottom: 10,
+    color: 'white',
   },
   camera: {
     flex: 1,
+    justifyContent: 'flex-end',
   },
   imgCont: {
     flex: 1,
+    backgroundColor: 'black',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -171,29 +180,34 @@ const styles = StyleSheet.create({
     height: '80%',
     resizeMode: 'contain',
   },
-  buttonContainer: {
+  bottomButtonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     padding: 20,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 30,
+    marginBottom: 20,
+    marginHorizontal: 20,
   },
-  button: {
+  iconButton: {
     padding: 15,
-    borderRadius: 10,
+    borderRadius: 50,
     alignItems: 'center',
-  },
-  sendButton: {
-    backgroundColor: 'green',
-  },
-  retakeButton: {
-    backgroundColor: 'red',
+    justifyContent: 'center',
+    flexDirection: 'column', // Stack icon and text vertically
+    minWidth: 100, // Ensure buttons have consistent width
   },
   buttonText: {
     color: 'white',
-    fontWeight: 'bold',
+    marginTop: 5, // Space between icon and text
+    fontSize: 12,
   },
-  text: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
+  sendButton: {
+    backgroundColor: 'green',
+    marginRight: 5,
+  },
+  retakeButton: {
+    backgroundColor: 'red',
+    marginLeft: 5,
   },
 });

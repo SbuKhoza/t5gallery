@@ -6,6 +6,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
+// Import the RefreshProvider
+import { RefreshProvider } from './components/RefreshContext';
+
 // Import screens from the screens folder
 import { 
   HomeScreen, 
@@ -19,42 +22,44 @@ const Tab = createBottomTabNavigator();
 
 export default function App() {
   return (
-    <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={({ route }) => ({
-          tabBarIcon: ({ color, size }) => {
-            let iconName;
+    <RefreshProvider>
+      <NavigationContainer>
+        <Tab.Navigator
+          screenOptions={({ route }) => ({
+            tabBarIcon: ({ color, size }) => {
+              let iconName;
 
-            switch (route.name) {
-              case 'Home':
-                iconName = 'home';
-                break;
-              case 'Camera':
-                iconName = 'camera';
-                break;
-              case 'Gallery':
-                iconName = 'images';
-                break;
-              case 'Profile':
-                iconName = 'person';
-                break;
-            }
+              switch (route.name) {
+                case 'Home':
+                  iconName = 'home';
+                  break;
+                case 'Camera':
+                  iconName = 'camera';
+                  break;
+                case 'Gallery':
+                  iconName = 'images';
+                  break;
+                case 'Profile':
+                  iconName = 'person';
+                  break;
+              }
 
-            return <Ionicons name={iconName} size={size} color={color} />;
-          },
-          tabBarActiveTintColor: styles.tabBar.activeTintColor,
-          tabBarInactiveTintColor: styles.tabBar.inactiveTintColor,
-          tabBarStyle: styles.tabBar.style,
-          tabBarLabelStyle: styles.tabBar.labelStyle,
-        })}
-      >
-        <Tab.Screen name="Home" component={HomeScreen} />
-        <Tab.Screen name="Camera" component={CameraScreen} />
-        <Tab.Screen name="Gallery" component={GalleryScreen} />
-        <Tab.Screen name="Profile" component={ProfileScreen} />
-      </Tab.Navigator>
-      <StatusBar style="auto" />
-    </NavigationContainer>
+              return <Ionicons name={iconName} size={size} color={color} />;
+            },
+            tabBarActiveTintColor: styles.tabBar.activeTintColor,
+            tabBarInactiveTintColor: styles.tabBar.inactiveTintColor,
+            tabBarStyle: styles.tabBar.style,
+            tabBarLabelStyle: styles.tabBar.labelStyle,
+          })}
+        >
+          <Tab.Screen name="Home" component={HomeScreen} />
+          <Tab.Screen name="Camera" component={CameraScreen} />
+          <Tab.Screen name="Gallery" component={GalleryScreen} />
+          <Tab.Screen name="Profile" component={ProfileScreen} />
+        </Tab.Navigator>
+        <StatusBar style="auto" />
+      </NavigationContainer>
+    </RefreshProvider>
   );
 }
 

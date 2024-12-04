@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, Image, FlatList, Dimensions } from 'react-native';
+import { StyleSheet, Text, View, Image, FlatList, Dimensions, Button, RefreshControl } from 'react-native';
 import * as SQLite from 'expo-sqlite';
+import { useRefresh } from '../components/RefreshContext'; //useRefresh hook
 
 export default function GalleryScreen() {
   const [photos, setPhotos] = useState([]);
   const [db, setDb] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Use the refresh context
+  const { refreshKey } = useRefresh();
 
   useEffect(() => {
     const openDatabase = async () => {
@@ -18,21 +23,29 @@ export default function GalleryScreen() {
     openDatabase();
   }, []);
 
+  const fetchPhotos = async () => {
+    if (!db) return;
+
+    try {
+      setIsRefreshing(true);
+      // Fetch all photos, most recent first
+      const result = await db.getAllAsync('SELECT * FROM photos ORDER BY timestamp DESC');
+      
+      console.log('Fetched photos:', result);
+      console.log('Number of photos:', result.length);
+      
+      setPhotos(result);
+    } catch (error) {
+      console.error('Error fetching photos:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Use refreshKey to trigger photo fetching
   useEffect(() => {
-    const fetchPhotos = async () => {
-      if (!db) return;
-
-      try {
-        // Fetch all photos, most recent first
-        const result = await db.getAllAsync('SELECT * FROM photos ORDER BY timestamp DESC');
-        setPhotos(result);
-      } catch (error) {
-        console.error('Error fetching photos:', error);
-      }
-    };
-
     fetchPhotos();
-  }, [db]);
+  }, [db, refreshKey]);
 
   const renderPhoto = ({ item }) => (
     <View style={styles.photoContainer}>
@@ -57,11 +70,18 @@ export default function GalleryScreen() {
           keyExtractor={(item) => item.id.toString()}
           numColumns={3}
           contentContainerStyle={styles.gallery}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={fetchPhotos}
+            />
+          }
         />
       )}
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
