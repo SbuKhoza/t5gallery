@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import * as SQLite from 'expo-sqlite';
 import { useRefresh } from '../components/RefreshContext'; //useRefresh hook
+import MapView, { Marker } from 'react-native-maps';
 
 export default function GalleryScreen() {
   const [photos, setPhotos] = useState([]);
@@ -26,6 +27,7 @@ export default function GalleryScreen() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState('');
+  const [showMap, setShowMap] = useState(false);
   
   // Use the refresh context
   const { refreshKey, triggerRefresh } = useRefresh();
@@ -34,6 +36,13 @@ export default function GalleryScreen() {
     const openDatabase = async () => {
       try {
         const database = await SQLite.openDatabaseAsync('photos.db');
+        // Make sure the latitude and longitude columns exist
+        await database.execAsync(`
+          PRAGMA table_info(photos);
+          ALTER TABLE photos ADD COLUMN IF NOT EXISTS latitude REAL;
+          ALTER TABLE photos ADD COLUMN IF NOT EXISTS longitude REAL;
+          ALTER TABLE photos ADD COLUMN IF NOT EXISTS name TEXT;
+        `);
         setDb(database);
       } catch (error) {
         console.error('Error opening database:', error);
@@ -71,11 +80,17 @@ export default function GalleryScreen() {
     setCurrentImageIndex(index);
     setFullScreenImage(item);
     setNewName(item.name || '');
+    setShowMap(false);
   };
 
   const closeFullScreen = () => {
     setFullScreenImage(null);
     setIsRenaming(false);
+    setShowMap(false);
+  };
+
+  const toggleMap = () => {
+    setShowMap(!showMap);
   };
 
   const goToNextImage = () => {
@@ -85,6 +100,7 @@ export default function GalleryScreen() {
       setFullScreenImage(photos[nextIndex]);
       setNewName(photos[nextIndex].name || '');
       setIsRenaming(false);
+      setShowMap(false);
     }
   };
 
@@ -95,6 +111,7 @@ export default function GalleryScreen() {
       setFullScreenImage(photos[prevIndex]);
       setNewName(photos[prevIndex].name || '');
       setIsRenaming(false);
+      setShowMap(false);
     }
   };
 
@@ -165,8 +182,16 @@ export default function GalleryScreen() {
           <Text style={styles.photoName} numberOfLines={1}>{item.name}</Text>
         </View>
       )}
+      {item.latitude && item.longitude && (
+        <View style={styles.locationPinContainer}>
+          <View style={styles.locationPin} />
+        </View>
+      )}
     </TouchableOpacity>
   );
+
+  // Check if the current image has location data
+  const hasLocation = fullScreenImage?.latitude && fullScreenImage?.longitude;
 
   return (
     <View style={styles.container}>
@@ -227,13 +252,47 @@ export default function GalleryScreen() {
             </TouchableOpacity>
           </View>
           
-          {/* Full screen image */}
-          {fullScreenImage && (
-            <Image
-              source={{ uri: fullScreenImage.uri }}
-              style={styles.fullScreenImage}
-              resizeMode="contain"
-            />
+          {/* Map toggle button */}
+          {hasLocation && (
+            <TouchableOpacity 
+              style={styles.mapToggleButton}
+              onPress={toggleMap}
+            >
+              <Text style={styles.mapToggleText}>
+                {showMap ? 'Show Photo' : 'Show Map'}
+              </Text>
+            </TouchableOpacity>
+          )}
+          
+          {/* Content area - either map or image */}
+          {showMap && hasLocation ? (
+            <View style={styles.mapContainer}>
+              <MapView
+                style={styles.map}
+                initialRegion={{
+                  latitude: fullScreenImage.latitude,
+                  longitude: fullScreenImage.longitude,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                }}
+              >
+                <Marker
+                  coordinate={{
+                    latitude: fullScreenImage.latitude,
+                    longitude: fullScreenImage.longitude,
+                  }}
+                  title={fullScreenImage.name || 'Photo location'}
+                />
+              </MapView>
+            </View>
+          ) : (
+            fullScreenImage && (
+              <Image
+                source={{ uri: fullScreenImage.uri }}
+                style={styles.fullScreenImage}
+                resizeMode="contain"
+              />
+            )
           )}
           
           {/* Bottom controls */}
@@ -338,6 +397,23 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: 'center',
   },
+  locationPinContainer: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  locationPin: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4CAF50',
+  },
   fullScreenContainer: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.9)',
@@ -387,67 +463,31 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
   },
+  mapToggleButton: {
+    position: 'absolute',
+    top: 40,
+    left: 20,
+    zIndex: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  mapToggleText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  mapContainer: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height - 160,
+  },
+  map: {
+    width: '100%',
+    height: '100%',
+  },
   disabledButton: {
     opacity: 0.3,
   },
   controlsContainer: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    padding: 20,
-    alignItems: 'center',
-  },
-  imageName: {
-    color: 'white',
-    fontSize: 16,
-    marginBottom: 15,
-    textAlign: 'center',
-  },
-  actionButtonsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '80%',
-  },
-  actionButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
-    marginHorizontal: 10,
-    minWidth: 100,
-    alignItems: 'center',
-  },
-  renameButton: {
-    backgroundColor: '#2196F3',
-  },
-  deleteButton: {
-    backgroundColor: '#F44336',
-  },
-  cancelButton: {
-    backgroundColor: '#757575',
-  },
-  saveButton: {
-    backgroundColor: '#4CAF50',
-  },
-  actionButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-  },
-  renameContainer: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  renameInput: {
-    backgroundColor: 'white',
-    width: '80%',
-    borderRadius: 5,
-    padding: 10,
-    marginBottom: 15,
-    fontSize: 16,
-  },
-  renameButtons: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-});
+  }.
